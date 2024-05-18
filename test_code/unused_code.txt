@@ -1,0 +1,71 @@
+
+// unused code
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
+import org.apache.spark.ml.regression.LinearRegression
+import org.apache.spark.sql.functions.col
+
+val spark = SparkSession.builder.appName("Linear Regression for Chronic Absence").getOrCreate()
+
+var joined = spark.read.option("header", "true").option("inferSchema", "true").csv("joined/part-00000-9c425ce7-e83a-4155-a86e-8ef8fd8daa59-c000.csv")
+
+joined = joined.withColumn("Poverty", col("Poverty").cast("double"))
+
+val indexerMale = new StringIndexer().setInputCol("Male").setOutputCol("MaleIndex").fit(joined)
+val indexedJoinedMale = indexerMale.transform(joined)
+
+val indexerAsian = new StringIndexer().setInputCol("Asian").setOutputCol("AsianIndex").fit(indexedJoinedMale)
+val indexedJoinedAsian = indexerAsian.transform(indexedJoinedMale)
+
+val indexerEnglishLearner = new StringIndexer().setInputCol("EnglishLearner").setOutputCol("EnglishLearnerIndex").fit(indexedJoinedAsian)
+val indexedJoinedEnglishLearner = indexerEnglishLearner.transform(indexedJoinedAsian)
+
+val assembler = new VectorAssembler().setInputCols(Array("MaleIndex", "AsianIndex", "EnglishLearnerIndex")).setOutputCol("features")
+val outputData = assembler.transform(indexedJoinedEnglishLearner)
+
+// Check if Poverty is been converted to double type
+if (joined.schema("Poverty").dataType.simpleString != "double") {
+    throw new IllegalArgumentException("Poverty column is not converted to double")
+}
+
+val lr = new LinearRegression().setLabelCol("Poverty").setFeaturesCol("features").setMaxIter(10).setRegParam(0.3).setElasticNetParam(0.8)
+val lrModel = lr.fit(outputData)
+
+
+println(s"Coefficients: ${lrModel.coefficients} Intercept: ${lrModel.intercept}")
+
+
+val trainingSummary = lrModel.summary
+println(s"RMSE: ${trainingSummary.rootMeanSquaredError}")
+println(s"r2: ${trainingSummary.r2}")
+
+
+trainingSummary.residuals.show()
+
+
+
+
+
+
+
+// Unused
+// Text Formatting: Remove spaces in "Grade 1","Grade 2"...Create uniform names in 2 datasets.
+val updatedDf = dt.withColumn("Grade", 
+  when($"Grade" === "0K", "GradeK")
+    .when($"Grade" === "1", "Grade1")
+    .when($"Grade" === "2", "Grade2")
+    .when($"Grade" === "3", "Grade3")
+    .when($"Grade" === "4", "Grade4")
+    .when($"Grade" === "5", "Grade5")
+    .when($"Grade" === "6", "Grade6")
+    .when($"Grade" === "7", "Grade7")
+    .when($"Grade" === "8", "Grade8")
+    .when($"Grade" === "9", "Grade9")
+    .when($"Grade" === "10", "Grade10")
+    .when($"Grade" === "11", "Grade11")
+    .when($"Grade" === "12", "Grade12")
+    .when($"Grade" === "All Grades", "TotalEnrollment")
+    .when($"Grade" === "PK in K-12 Schools", "GradePK")
+    .otherwise($"Grade")
+)
+updatedDf.show()

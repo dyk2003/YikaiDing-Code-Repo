@@ -1,0 +1,23 @@
+// implement the following code after data cleaning and profiling
+
+// load datasets to HDFS
+hdfs dfs -put attendence_cleaned.csv
+hdfs dfs -put snapshot_cleaned.csv
+
+spark-shell --deploy-mode client -i 
+
+// load datasets to Spark
+//Dataset 1
+var dt = spark.read.option("header", true).csv("attendence_cleaned.csv")
+//Dataset 2
+var df = spark.read.option("header", "true").csv("snapshot_cleaned.csv")
+
+
+val joined = df.join(dt, Seq("DBN", "Year"),"inner")
+
+// if you are checking Yikai's Account
+var joined = spark.read.option("header", "true").option("inferSchema", "true").csv("joined/part-00000-9c425ce7-e83a-4155-a86e-8ef8fd8daa59-c000.csv")
+val data = spark.read.option("header", "true").option("inferSchema", "true").csv("joined/part-00000-9c425ce7-e83a-4155-a86e-8ef8fd8daa59-c000.csv")
+
+
+

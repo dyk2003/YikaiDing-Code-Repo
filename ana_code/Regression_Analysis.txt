@@ -1,0 +1,42 @@
+
+// Regression Analysis
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.ml.feature.{VectorAssembler, StringIndexer}
+import org.apache.spark.ml.regression.LinearRegression
+import org.apache.spark.sql.functions.col
+
+// Spark
+val spark = SparkSession.builder.appName("Linear Regression for Chronic Absence").getOrCreate()
+
+// Load dataframe
+//val data = spark.read.option("header", "true").option("inferSchema", "true").csv("joined/part-00000-9c425ce7-e83a-4155-a86e-8ef8fd8daa59-c000.csv")
+
+// Encode categorical variables
+val indexerMale = new StringIndexer().setInputCol("Male").setOutputCol("MaleIndex").fit(data)
+val indexedData = indexerMale.transform(data)
+val indexerAsian = new StringIndexer().setInputCol("Asian").setOutputCol("AsianIndex").fit(indexedData)
+val indexedData2 = indexerAsian.transform(indexedData)
+val indexerEnglishLearner = new StringIndexer().setInputCol("EnglishLearner").setOutputCol("EnglishLearnerIndex").fit(indexedData2)
+val indexedDataFinal = indexerEnglishLearner.transform(indexedData2)
+
+// Features
+val assembler = new VectorAssembler().setInputCols(Array("Poverty", "MaleIndex", "AsianIndex", "EnglishLearnerIndex")).setOutputCol("features")
+val output = assembler.transform(indexedDataFinal)
+
+// Prepare for the final dataset
+val finalData = output.withColumn("label", col("ChronicallyAbsentPerct").cast("double")).select("features", "label")
+
+// Build and train the model
+val lr = new LinearRegression()
+val lrModel = lr.fit(finalData)
+
+// Print coefficients and intercept
+println(s"Coefficients: ${lrModel.coefficients} Intercept: ${lrModel.intercept}")
+
+// Print summaries and evaluations
+val trainingSummary = lrModel.summary
+println(s"RMSE: ${trainingSummary.rootMeanSquaredError}")
+println(s"r2: ${trainingSummary.r2}")
+
+// Print Residuals
+trainingSummary.residuals.show()
